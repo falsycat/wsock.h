@@ -50,7 +50,7 @@ int main(void) {
   }
   {
     /* 512 bytes binary data */
-    const uint8_t buf[] = { 0x82, 0x7E, 0x00, 0x02, };
+    const uint8_t buf[] = { 0x82, 0x7E, 0x02, 0x00, };
 
     wsock_t wsock = {0};
     const size_t size = wsock_decode(&wsock, buf, sizeof(buf));
@@ -67,7 +67,7 @@ int main(void) {
   }
   {
     /* 100 GiB binary data */
-    const uint8_t buf[] = { 0x82, 0x7F, 0x00, 0x00, 0x00, 0x00, 0x19, 0x00, 0x00, 0x00, };
+    const uint8_t buf[] = { 0x82, 0x7F, 0x00, 0x00, 0x00, 0x19, 0x00, 0x00, 0x00, 0x00, };
 
     wsock_t wsock = {0};
     const size_t size = wsock_decode(&wsock, buf, sizeof(buf));

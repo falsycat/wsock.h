@@ -44,11 +44,21 @@ static inline void wsock_encode(uint8_t* buf, const wsock_t* wsock) {
   *buf = wsock->mask << 7;
   if (wsock->payload_len > UINT16_MAX) {
     *(buf++) |= 127;
-    *(uint64_t*) buf = wsock->payload_len;
+    *(uint64_t*) buf =
+      (((wsock->payload_len >> 56) & 0xFF) <<  0) |
+      (((wsock->payload_len >> 48) & 0xFF) <<  8) |
+      (((wsock->payload_len >> 40) & 0xFF) << 16) |
+      (((wsock->payload_len >> 32) & 0xFF) << 24) |
+      (((wsock->payload_len >> 24) & 0xFF) << 32) |
+      (((wsock->payload_len >> 16) & 0xFF) << 40) |
+      (((wsock->payload_len >>  8) & 0xFF) << 48) |
+      (((wsock->payload_len >>  0) & 0xFF) << 56);
     buf += 8;
   } else if (wsock->payload_len >= 126) {
     *(buf++) |= 126;
-    *(uint16_t*) buf = wsock->payload_len;
+    *(uint16_t*) buf =
+      (((wsock->payload_len >> 8) & 0xFF) << 0) |
+      (((wsock->payload_len >> 0) & 0xFF) << 8);
     buf += 2;
   } else {
     *(buf++) |= wsock->payload_len;
@@ -78,30 +88,41 @@ static inline size_t wsock_decode(wsock_t* wsock, const uint8_t* buf, size_t siz
   size -= 2;
   ptr  += 2;
 
-# define wsock_decode_uint_(name, N) do {  \
-    if (size < N/8) {  \
-      return 0;  \
-    }  \
-    wsock->name = *(uint##N##_t*) ptr;  \
-    size -= N/8;  \
-    ptr  += N/8;  \
-  } while (0)
-
   switch (wsock->payload_len) {
   case 126:
-    wsock_decode_uint_(payload_len, 16);
+    if (size < 2) {
+      return 0;
+    }
+    wsock->payload_len = ((uint16_t) ptr[0] << 8) | ptr[1];
+    ptr  += 2;
+    size -= 2;
     break;
   case 127:
-    wsock_decode_uint_(payload_len, 64);
+    if (size < 8) {
+      return 0;
+    }
+    wsock->payload_len =
+      ((uint64_t) ptr[0] << 56) |
+      ((uint64_t) ptr[1] << 48) |
+      ((uint64_t) ptr[2] << 40) |
+      ((uint64_t) ptr[3] << 32) |
+      ((uint64_t) ptr[4] << 24) |
+      ((uint64_t) ptr[5] << 16) |
+      ((uint64_t) ptr[6] <<  8) | ptr[7];
+    ptr  += 8;
+    size -= 8;
     break;
   }
 
   if (wsock->mask) {
-    wsock_decode_uint_(mask_key, 32);
+    if (size < 4) {
+      return 0;
+    }
+    wsock->mask_key = *(uint32_t*) ptr;
+    ptr  += 4;
+    size -= 4;
   }
   return ptr - buf;
-
-# undef wsock_decode_uint_
 }
 
 static inline void wsock_mask(uint8_t* buf, size_t len, uint32_t key) {
